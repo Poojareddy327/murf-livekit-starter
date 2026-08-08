@@ -153,6 +153,8 @@ export interface AgentSessionView_01Props {
   audioVisualizerWaveLineWidth?: number;
   /** Optional class name merged onto the outer `<section>` container. */
   className?: string;
+  /** Callback function when the call ends */
+  onCallEnd?: () => void;
 }
 
 export function AgentSessionView_01({
@@ -171,6 +173,7 @@ export function AgentSessionView_01({
   audioVisualizerRadialBarCount,
   audioVisualizerRadialRadius,
   audioVisualizerWaveLineWidth,
+  onCallEnd,
   ref,
   className,
   ...props
@@ -198,6 +201,31 @@ export function AgentSessionView_01({
     }
   }, [messages]);
 
+  const handleDisconnect = () => {
+    session.end();
+    onCallEnd?.();
+  };
+
+  // Generate status label based on agent state
+  const getStatusLabel = () => {
+    switch (agentState) {
+      case 'connecting':
+        return 'Connecting...';
+      case 'listening':
+        return 'Listening to you';
+      case 'thinking':
+        return 'Processing...';
+      case 'speaking':
+        return 'FinAssist is speaking';
+      case 'idle':
+        return 'Ready';
+      default:
+        return '';
+    }
+  };
+
+  const statusLabel = getStatusLabel();
+
   return (
     <section
       ref={ref}
@@ -205,8 +233,34 @@ export function AgentSessionView_01({
       {...props}
     >
       <Fade top className="absolute inset-x-4 top-0 z-10 h-40" />
-      {/* transcript */}
 
+      {/* Status indicator - shown at the top */}
+      {!chatOpen && statusLabel && (
+        <div className="absolute top-8 right-0 left-0 z-20 flex justify-center">
+          <div className="bg-muted/80 border-border rounded-full border px-6 py-2 shadow-lg backdrop-blur-sm">
+            <p className="text-foreground flex items-center gap-2 text-sm font-semibold">
+              {(agentState === 'listening' || agentState === 'thinking') && (
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500"></span>
+                </span>
+              )}
+              {agentState === 'speaking' && (
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500"></span>
+                </span>
+              )}
+              {agentState === 'connecting' && (
+                <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-yellow-500"></span>
+              )}
+              {statusLabel}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* transcript */}
       <div className="absolute top-0 bottom-[135px] flex w-full flex-col md:bottom-[170px]">
         <AnimatePresence>
           {chatOpen && (
@@ -264,7 +318,7 @@ export function AgentSessionView_01({
             controls={controls}
             isChatOpen={chatOpen}
             isConnected={session.isConnected}
-            onDisconnect={session.end}
+            onDisconnect={handleDisconnect}
             onIsChatOpenChange={setChatOpen}
           />
         </div>
