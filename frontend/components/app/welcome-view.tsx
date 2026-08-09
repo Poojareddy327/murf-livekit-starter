@@ -1,4 +1,9 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+
+const STORAGE_KEY = 'finassist_user_name';
 
 function WelcomeImage() {
   return (
@@ -40,6 +45,30 @@ export const WelcomeView = ({
   onStartCall,
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
+  const [name, setName] = useState('');
+  const [savedName, setSavedName] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) setSavedName(stored);
+    } catch (e) {
+      console.error('localStorage error:', e);
+    }
+  }, []);
+
+  const handleSaveName = () => {
+    if (name.trim()) {
+      try {
+        localStorage.setItem(STORAGE_KEY, name.trim());
+        setSavedName(name.trim());
+        setName('');
+      } catch (e) {
+        console.error('Failed to save:', e);
+      }
+    }
+  };
+
   const isConnecting = startButtonText.toLowerCase().includes('connecting');
 
   return (
@@ -57,6 +86,36 @@ export const WelcomeView = ({
           Get instant help with banking information, digital services, card support, UPI guidance,
           and security tips.
         </p>
+
+        {!savedName && (
+          <div className="mb-6 w-full max-w-xs">
+            <input
+              type="text"
+              placeholder="What's your name?"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+              maxLength={100}
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-foreground"
+              disabled={isConnecting}
+            />
+            {name && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSaveName}
+                disabled={isConnecting}
+                className="mt-2 rounded-full"
+              >
+                Save Name
+              </Button>
+            )}
+          </div>
+        )}
+
+        {savedName && (
+          <p className="text-accent mb-4 text-sm font-medium">Hi, {savedName}! 👋</p>
+        )}
 
         <Button
           size="lg"

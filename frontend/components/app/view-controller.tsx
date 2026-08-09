@@ -11,6 +11,8 @@ import { CallEndedView } from '@/components/app/call-ended-view';
 import { MicrophoneErrorView } from '@/components/app/microphone-error-view';
 import { WelcomeView } from '@/components/app/welcome-view';
 
+const STORAGE_KEY = 'finassist_user_name';
+
 const MotionWelcomeView = motion.create(WelcomeView);
 const MotionSessionView = motion.create(AgentSessionView_01);
 const MotionCallEndedView = motion.create(CallEndedView);
@@ -74,7 +76,12 @@ export function ViewController({ appConfig }: ViewControllerProps) {
     setIsConnecting(true);
 
     try {
-      await start();
+      // Get saved username from localStorage and pass to backend
+      const savedUserName = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+      
+      // Use room options to pass userName to token endpoint
+      const roomOptions = savedUserName ? { userName: savedUserName } : undefined;
+      await start(roomOptions);
     } catch (error) {
       console.error('Failed to start call:', error);
       setIsConnecting(false);
