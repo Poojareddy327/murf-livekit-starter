@@ -7,7 +7,6 @@ type ConnectionDetails = {
   roomName: string;
   participantName: string;
   participantToken: string;
-  userName?: string | null;
 };
 
 const API_KEY = process.env.LIVEKIT_API_KEY;
@@ -41,15 +40,13 @@ async function handler(req: Request) {
     }
 
     const participantName = 'user';
-    const participantIdentity = body?.participantIdentity || 'voice_user_default';
+    const participantIdentity = 'voice_user_default';
     const roomName = `voice_room_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    const userName = body?.userName || null;
 
     const participantToken = await createParticipantToken(
       { identity: participantIdentity, name: participantName },
       roomName,
-      roomConfig,
-      userName
+      roomConfig
     );
 
     const data: ConnectionDetails = {
@@ -57,7 +54,6 @@ async function handler(req: Request) {
       roomName,
       participantName,
       participantToken,
-      userName,
     };
     const headers = new Headers({
       'Cache-Control': 'no-store',
@@ -77,8 +73,7 @@ export const GET = handler;
 function createParticipantToken(
   userInfo: AccessTokenOptions,
   roomName: string,
-  roomConfig?: RoomConfiguration,
-  userName?: string | null
+  roomConfig?: RoomConfiguration
 ): Promise<string> {
   const at = new AccessToken(API_KEY, API_SECRET, {
     ...userInfo,
@@ -95,10 +90,6 @@ function createParticipantToken(
 
   if (roomConfig) {
     at.roomConfig = roomConfig;
-  }
-
-  if (userName) {
-    at.metadata = JSON.stringify({ user_name: userName });
   }
 
   return at.toJwt();
