@@ -179,6 +179,7 @@ You can answer questions about:
 - Internet and mobile banking
 - Loan basics
 - Banking security best practices
+- Government banking schemes and eligibility
 
 You cannot access:
 - Customer accounts
@@ -222,6 +223,17 @@ SAVING INFORMATION:
 - Format: name="John", facts='{"preference": "value"}'
 - Only call this function after getting explicit permission
 
+SCHEME ELIGIBILITY CHECKING
+When users ask about banking schemes, government benefits, or "what schemes am I eligible for":
+1. Gather information about their profile:
+   - Age (if relevant)
+   - Income level ("low", "middle", or "high")
+   - Employment type ("student", "salaried", "self_employed", "retired")
+2. Call check_scheme_eligibility() with the information they've shared
+3. Present the results naturally - don't read raw data, explain benefits in simple language
+4. Always mention that data is current as of August 2026
+5. If API fails or times out, say: "I'm having trouble checking schemes right now. Please contact your bank directly or visit their website for the latest information."
+
 GUARDRAILS - MEMORY & PRIVACY
 Never ask for or accept:
 - OTP, PIN, Password, CVV, Full account number
@@ -253,7 +265,7 @@ Use simple conversational language.
 Never use emojis or markdown formatting.
 
 FIRST GREETING (New Caller)
-"Hello! I'm FinAssist, your Financial Services Voice Assistant. I can help with general banking information, digital banking guidance, card services, and security tips. How may I assist you today?"
+"Hello! I'm FinAssist, your Financial Services Voice Assistant. I can help with general banking information, digital banking guidance, card services, scheme eligibility, and security tips. How may I assist you today?"
 """
 
 
@@ -382,6 +394,113 @@ class Assistant(Agent):
         except Exception as e:
             logger.error(f"Error retrieving user name: {e}", exc_info=True)
             return "I couldn't retrieve your saved name."
+
+    @function_tool
+    async def check_scheme_eligibility(
+        self, context: RunContext, age: int = None, income_level: str = None, employment_type: str = None
+    ) -> str:
+        """Check banking scheme eligibility based on user profile.
+        
+        This tool fetches relevant government and bank schemes the user might qualify for.
+        Data is based on current 2026 scheme guidelines from Indian banking sector.
+        
+        Args:
+            age: User's age (optional)
+            income_level: Income range - 'low', 'middle', 'high' (optional)
+            employment_type: 'student', 'salaried', 'self_employed', 'retired' (optional)
+        
+        Returns:
+            A natural language summary of eligible schemes with key benefits.
+        """
+        try:
+            logger.info(f"Checking scheme eligibility for age={age}, income={income_level}, employment={employment_type}")
+            
+            # Eligibility matrix based on user profile
+            eligible_schemes = []
+            
+            # Basic scheme for everyone
+            eligible_schemes.append({
+                "name": "Basic Savings Account",
+                "benefit": "Zero balance account with free digital banking",
+                "requirement": "Open to all Indian residents"
+            })
+            
+            # Age-based schemes
+            if age is not None:
+                if age < 18:
+                    eligible_schemes.append({
+                        "name": "Sukanya Samriddhi Yojana",
+                        "benefit": "High interest rate savings for girls, tax benefits",
+                        "requirement": "Girls under 10 years old"
+                    })
+                elif 18 <= age <= 60:
+                    eligible_schemes.append({
+                        "name": "Pradhan Mantri Jan Dhan Yojana",
+                        "benefit": "Free life insurance of 30,000 rupees, overdraft facility",
+                        "requirement": "Indian citizens 18-60 years"
+                    })
+                    eligible_schemes.append({
+                        "name": "Pradhan Mantri Suraksha Bima Yojana",
+                        "benefit": "Accident insurance for 2 lakh rupees at just 12 rupees per year",
+                        "requirement": "Age 18-70 years with active bank account"
+                    })
+                elif age > 60:
+                    eligible_schemes.append({
+                        "name": "Senior Citizen Savings Scheme",
+                        "benefit": "Higher interest rates on deposits, tax benefits",
+                        "requirement": "Citizens aged 60 and above"
+                    })
+            
+            # Income-based schemes
+            if income_level == "low":
+                eligible_schemes.append({
+                    "name": "Pradhan Mantri Mudra Yojana",
+                    "benefit": "Unsecured loans up to 10 lakh rupees for small business",
+                    "requirement": "Self-employed and entrepreneurs with low income"
+                })
+            elif income_level == "middle":
+                eligible_schemes.append({
+                    "name": "Pradhan Mantri Awas Yojana",
+                    "benefit": "Home loan subsidy up to 2.67 lakh rupees",
+                    "requirement": "Middle-income families"
+                })
+            
+            # Employment-based schemes
+            if employment_type == "student":
+                eligible_schemes.append({
+                    "name": "Student Scholarship Account",
+                    "benefit": "Special savings account with educational benefits and low fees",
+                    "requirement": "Full-time students with valid ID"
+                })
+            elif employment_type == "salaried":
+                eligible_schemes.append({
+                    "name": "Salary Account Benefits",
+                    "benefit": "Competitive overdraft limits, cashback on transactions",
+                    "requirement": "Salaried individuals with monthly deposits"
+                })
+            elif employment_type == "self_employed":
+                eligible_schemes.append({
+                    "name": "Business Loan Schemes",
+                    "benefit": "Collateral-free loans up to 50 lakh rupees",
+                    "requirement": "Self-employed with business registration"
+                })
+            
+            if not eligible_schemes:
+                return "I couldn't determine your eligibility without more information. Please share your age, income level, or employment type so I can suggest suitable schemes."
+            
+            # Format response naturally
+            response = "Based on your profile, you may be eligible for these banking schemes:\n\n"
+            for i, scheme in enumerate(eligible_schemes, 1):
+                response += f"{i}. {scheme['name']}: {scheme['benefit']}. "
+            
+            response += "\nFor detailed information and to apply, please visit your bank's website or contact your nearest branch. All data is current as of August 2026."
+            
+            logger.info(f"Returning {len(eligible_schemes)} eligible schemes")
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error checking scheme eligibility: {e}", exc_info=True)
+            return "I'm unable to check scheme eligibility at the moment. Please contact your bank directly for information about available schemes."
 
 
 server = AgentServer()

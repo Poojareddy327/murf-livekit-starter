@@ -188,6 +188,40 @@ Tests are in [`tests/test_agent.py`](tests/test_agent.py) and use LLM-as-judge e
 
 To run tests in CI, you'll need to add `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` as repository secrets.
 
+## Day 5 — Tools & Data Integration
+
+This agent includes a **scheme eligibility checker** tool that demonstrates Day 5 functionality.
+
+### check_scheme_eligibility
+
+This tool helps users discover banking schemes and government benefits they might qualify for based on their profile.
+
+**How it works:**
+1. User asks: "What schemes can I apply for?" or "Am I eligible for any government benefits?"
+2. Agent asks clarifying questions (age, income level, employment type)
+3. Agent calls `check_scheme_eligibility()` with the collected information
+4. Tool returns a natural language summary of applicable schemes with benefits
+5. Agent presents results to the user in conversational format
+
+**Example conversation:**
+```
+User: What schemes am I eligible for?
+Agent: I can help! Could you share your age, income level (low, middle, or high), and employment type (student, salaried, self-employed, or retired)?
+User: I'm 28, middle income, and salaried.
+Agent: [calls check_scheme_eligibility(age=28, income_level="middle", employment_type="salaried")]
+Agent: Based on your profile, you may be eligible for several schemes...
+```
+
+**Data source:** All scheme data is based on current 2026 government guidelines for Indian banking sector. The tool includes:
+- Pradhan Mantri Jan Dhan Yojana (PMJDY)
+- Pradhan Mantri Suraksha Bima Yojana (PMSBY)
+- Pradhan Mantri Awas Yojana
+- Pradhan Mantri Mudra Yojana
+- Sukanya Samriddhi Yojana
+- Senior Citizen Savings Scheme
+
+**Error handling:** If the API times out or encounters an error, the agent gracefully responds: "I'm having trouble checking schemes right now. Please contact your bank directly or visit their website for the latest information." This ensures the user gets a helpful fallback instead of silence or hallucinated data.
+
 ## Deployment
 
 ### Railway

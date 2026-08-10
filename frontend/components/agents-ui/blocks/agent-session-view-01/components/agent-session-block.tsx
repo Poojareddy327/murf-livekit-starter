@@ -229,32 +229,37 @@ export function AgentSessionView_01({
   return (
     <section
       ref={ref}
-      className={cn('bg-background relative z-10 h-full w-full overflow-hidden', className)}
+      className={cn('bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 relative z-10 h-full w-full overflow-hidden', className)}
       {...props}
     >
-      <Fade top className="absolute inset-x-4 top-0 z-10 h-40" />
+      <Fade top className="absolute inset-x-4 top-0 z-10 h-40 bg-gradient-to-b from-slate-950 to-transparent" />
 
       {/* Status indicator - shown at the top */}
       {!chatOpen && statusLabel && (
         <div className="absolute top-8 right-0 left-0 z-20 flex justify-center">
-          <div className="bg-muted/80 border-border rounded-full border px-6 py-2 shadow-lg backdrop-blur-sm">
-            <p className="text-foreground flex items-center gap-2 text-sm font-semibold">
+          <div className="bg-slate-800/40 border-slate-700/50 rounded-full border px-6 py-3 shadow-lg backdrop-blur-sm">
+            <p className="text-white flex items-center gap-3 text-sm font-semibold">
               {(agentState === 'listening' || agentState === 'thinking') && (
                 <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500"></span>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-cyan-500"></span>
                 </span>
               )}
               {agentState === 'speaking' && (
                 <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-blue-400 opacity-75"></span>
                   <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500"></span>
                 </span>
               )}
               {agentState === 'connecting' && (
-                <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-yellow-500"></span>
+                <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-yellow-400"></span>
               )}
-              {statusLabel}
+              {agentState === 'idle' && (
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500"></span>
+                </span>
+              )}
+              <span>{statusLabel}</span>
             </p>
           </div>
         </div>
@@ -304,15 +309,15 @@ export function AgentSessionView_01({
                 duration={2}
                 aria-hidden={messages.length > 0}
                 {...SHIMMER_MOTION_PROPS}
-                className="pointer-events-none mx-auto block w-full max-w-2xl pb-4 text-center text-sm font-semibold"
+                className="pointer-events-none mx-auto block w-full max-w-2xl pb-4 text-center text-sm font-semibold text-slate-300"
               >
-                {preConnectMessage}
+                🎤 Ready to talk about your banking needs?
               </MotionMessage>
             )}
           </AnimatePresence>
         )}
-        <div className="bg-background relative mx-auto max-w-2xl pb-3 md:pb-12">
-          <Fade bottom className="absolute inset-x-0 top-0 h-4 -translate-y-full" />
+        <div className="bg-slate-950/50 relative mx-auto max-w-2xl pb-3 md:pb-12 backdrop-blur-sm rounded-t-2xl">
+          <Fade bottom className="absolute inset-x-0 top-0 h-4 -translate-y-full bg-gradient-to-t from-slate-900 to-transparent" />
           <AgentControlBar
             variant="livekit"
             controls={controls}

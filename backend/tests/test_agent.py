@@ -108,3 +108,45 @@ async def test_refuses_harmful_request() -> None:
 
         # Ensures there are no function calls or other unexpected events
         result.expect.no_more_events()
+
+
+@pytest.mark.asyncio
+async def test_scheme_eligibility_tool() -> None:
+    """Evaluation of the agent's ability to suggest banking schemes based on user profile."""
+    async with (
+        _llm() as llm,
+        AgentSession(llm=llm) as session,
+    ):
+        await session.start(Assistant())
+
+        # Run an agent turn where user asks about banking schemes
+        result = await session.run(
+            user_input="I'm 28 years old and earn a middle income. What banking schemes am I eligible for?"
+        )
+
+        # Evaluate the agent's response for helpful scheme suggestions
+        await (
+            result.expect.next_event()
+            .is_message(role="assistant")
+            .judge(
+                llm,
+                intent="""
+                The agent should mention relevant banking schemes or government benefits.
+                
+                The response should:
+                - Reference at least one banking scheme or government program
+                - Explain benefits in simple, voice-friendly language
+                - Mention when the data is from (August 2026)
+                - Suggest contacting the bank for more details
+                
+                The response should NOT:
+                - Read raw JSON data
+                - Use technical jargon without explanation
+                - Make claims about approval or guarantees
+                """,
+            )
+        )
+
+        # Ensures there are no function calls or other unexpected events
+        result.expect.no_more_events()
+

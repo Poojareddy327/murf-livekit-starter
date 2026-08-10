@@ -1,36 +1,5 @@
 import { Button } from '@/components/ui/button';
-
-function MicrophoneErrorIcon() {
-  return (
-    <svg
-      width="64"
-      height="64"
-      viewBox="0 0 64 64"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="text-destructive mb-4 size-16"
-    >
-      <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="2" opacity="0.2" />
-      <path
-        d="M32 14C28.6863 14 26 16.6863 26 20V32C26 35.3137 28.6863 38 32 38C35.3137 38 38 35.3137 38 32V20C38 16.6863 35.3137 14 32 14Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M44 32C44 38.6274 38.6274 44 32 44C25.3726 44 20 38.6274 20 32"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M32 44V50" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M26 50H38" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M14 14L50 50" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
-  );
-}
+import { AlertCircle, Mic } from 'lucide-react';
 
 interface MicrophoneErrorViewProps {
   errorMessage: string;
@@ -43,38 +12,114 @@ export const MicrophoneErrorView = ({
   ref,
 }: React.ComponentProps<'div'> & MicrophoneErrorViewProps) => {
   return (
-    <div ref={ref}>
-      <section className="bg-background flex flex-col items-center justify-center px-4 text-center">
-        <MicrophoneErrorIcon />
+    <div ref={ref} className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center px-4 overflow-hidden">
+      {/* Animated warning indicator background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-red-500/5 rounded-full blur-3xl animate-pulse" />
+      </div>
 
-        <h2 className="text-foreground mb-2 text-2xl font-bold md:text-3xl">
-          Microphone Access Required
+      <div className="max-w-md text-center relative z-10">
+        <div className="mb-6 animate-fade-in-down">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-900/40 to-rose-900/40 border border-red-500/30 flex items-center justify-center animate-pulse-alert">
+            <Mic className="w-10 h-10 text-red-400" />
+          </div>
+        </div>
+
+        <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 animate-fade-in-up">
+          Microphone Access Needed
         </h2>
 
-        <p className="text-muted-foreground mb-4 max-w-md text-sm leading-6 md:text-base">
+        <p className="text-slate-300 mb-6 leading-relaxed animate-fade-in-up delay-100">
           {errorMessage}
         </p>
 
-        <div className="bg-muted/50 border-border mb-8 max-w-md rounded-lg border p-4">
-          <p className="text-muted-foreground text-left text-xs md:text-sm">
-            <strong>How to fix:</strong>
-            <br />
-            1. Click the microphone icon in your browser&apos;s address bar
-            <br />
-            2. Allow microphone access for this site
-            <br />
-            3. Click Retry below
+        {/* Instructions Card with staggered animation */}
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-800/30 border border-slate-700/50 rounded-lg p-5 mb-8 text-left animate-fade-in-up delay-200 hover:border-blue-500/30 transition-colors">
+          <p className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-blue-400 animate-bounce-small" />
+            How to fix this:
           </p>
+          <ol className="text-sm text-slate-300 space-y-2">
+            <li className="flex gap-3 hover:translate-x-1 transition-transform">
+              <span className="flex-shrink-0 font-bold text-cyan-400">1.</span>
+              <span>Look for the microphone icon in your browser's address bar</span>
+            </li>
+            <li className="flex gap-3 hover:translate-x-1 transition-transform">
+              <span className="flex-shrink-0 font-bold text-cyan-400">2.</span>
+              <span>Click it and select "Allow" to enable microphone access</span>
+            </li>
+            <li className="flex gap-3 hover:translate-x-1 transition-transform">
+              <span className="flex-shrink-0 font-bold text-cyan-400">3.</span>
+              <span>Click the Retry button below</span>
+            </li>
+          </ol>
         </div>
 
         <Button
           size="lg"
           onClick={onRetry}
-          className="mt-2 w-full max-w-xs rounded-full px-8 py-6 text-base font-semibold shadow-lg transition-all hover:shadow-xl"
+          className="w-full rounded-xl px-8 py-6 text-base font-semibold bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-600 hover:to-blue-600 shadow-lg shadow-cyan-500/20 hover:shadow-xl hover:shadow-cyan-500/30 transition-all duration-200 transform hover:scale-105 active:scale-95 animate-fade-in-up delay-300"
         >
           Retry
         </Button>
-      </section>
+
+        <p className="text-slate-500 mt-6 text-xs animate-fade-in-up delay-400">
+          Your microphone access is essential for voice conversations with FinAssist
+        </p>
+      </div>
+
+      {/* Custom animations */}
+      <style>{`
+        @keyframes pulse-alert {
+          0%, 100% { 
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+          }
+          50% { 
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
+          }
+        }
+        @keyframes bounce-small {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+        @keyframes fade-in-down {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes fade-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-pulse-alert {
+          animation: pulse-alert 2s ease-in-out infinite;
+        }
+        .animate-bounce-small {
+          animation: bounce-small 1.5s ease-in-out infinite;
+        }
+        .animate-fade-in-down {
+          animation: fade-in-down 0.8s ease-out;
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.8s ease-out forwards;
+          opacity: 0;
+        }
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+        .delay-300 { animation-delay: 0.3s; }
+        .delay-400 { animation-delay: 0.4s; }
+      `}</style>
     </div>
   );
 };
