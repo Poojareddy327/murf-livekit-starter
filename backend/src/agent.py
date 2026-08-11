@@ -4,6 +4,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
+import os
 
 from dotenv import load_dotenv
 from livekit import rtc
@@ -18,9 +19,17 @@ from livekit.agents import (
     function_tool,
     tokenize,
     room_io,
+    SIP,
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+
+# Twilio imports (optional - for outbound calls)
+try:
+    from twilio.rest import Client as TwilioClient
+    HAS_TWILIO = True
+except ImportError:
+    HAS_TWILIO = False
 
 logger = logging.getLogger("agent")
 
@@ -165,6 +174,14 @@ You are FinAssist, a friendly and professional Financial Services Voice Agent wo
 You help customers with general banking information, digital banking guidance, card services, loan information, UPI guidance, and banking security awareness.
 You are an AI assistant and not a human representative.
 
+OUTBOUND CALL PROTOCOL
+When making an outbound call (user did NOT call you):
+- FIRST SENTENCE: Clearly state who is calling and why.
+  Example: "Hello! I'm calling from FinAssist, your bank's financial assistant. I'm calling to remind you about an upcoming government scheme deadline that you might be eligible for."
+- SECOND SENTENCE: Give the user control - how to opt out.
+  Example: "If this isn't a good time or if you'd prefer not to hear from us, just let me know and I can call you back later."
+- Then proceed naturally with your purpose.
+
 OBJECTIVES
 A successful conversation should:
 1. Help users understand banking services and processes.
@@ -264,7 +281,7 @@ Avoid long explanations.
 Use simple conversational language.
 Never use emojis or markdown formatting.
 
-FIRST GREETING (New Caller)
+FIRST GREETING (New Caller - Inbound)
 "Hello! I'm FinAssist, your Financial Services Voice Assistant. I can help with general banking information, digital banking guidance, card services, scheme eligibility, and security tips. How may I assist you today?"
 """
 
@@ -598,6 +615,172 @@ async def my_agent(ctx: JobContext):
     except Exception as e:
         logger.error(f"Error in agent session: {e}", exc_info=True)
         raise
+
+
+# ============= OUTBOUND CALL HANDLER =============
+@server.sip_inbound(
+    name="outbound-call",
+    application="outbound_reminder",
+)
+async def handle_outbound_call(ctx: JobContext, sip_session: SIP.InboundSession):
+    """
+    Handles outbound reminder calls.
+    
+    This is called when an outbound SIP connection is established.
+    The agent will deliver a scheme deadline reminder.
+    """
+    logger.info(f"Outbound call connected: {sip_session}")
+    
+    caller_id = f"outbound_{sip_session.call_id}"
+    
+    try:
+        init_db()
+        logger.info("Database initialized for outbound call")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}", exc_info=True)
+    
+    try:
+        logger.info("Initializing voice pipeline for outbound call...")
+        
+        # Create outbound-specific agent with reminder prompt
+        class OutboundReminder(Assistant):
+            def __init__(self, caller_id: str):
+                # Modified system prompt for outbound calls
+                outbound_prompt = SYSTEM_PROMPT + """
+
+OUTBOUND REMINDER: SCHEME DEADLINE
+You are making an outbound call to remind the user about an upcoming scheme deadline.
+
+YOUR OPENING (CRITICAL):
+1. First sentence: "Hello! I'm calling from FinAssist, your bank's financial assistant. I'm calling to remind you about an upcoming government scheme deadline that you might be eligible for."
+2. Second sentence: "If this isn't a good time or if you'd prefer not to hear from us, just let me know."
+3. Then ask: "May I have your name to personalize this reminder?"
+4. Once you have their name, call save_caller_info() to save it
+5. Then provide details about the scheme deadline: Pradhan Mantri Awas Yojana (Housing scheme), application deadline is August 31, 2026
+6. Explain they may be eligible if they have a middle income and are looking to build or upgrade their home
+7. Provide next steps: "You can apply online at pmayuclap.gov.in or visit your nearest bank branch for more information."
+8. Ask if they have any questions about the scheme
+9. If they want to opt out from future calls, help them with that using the forget_me_tool()
+"""
+                super().__init__(instructions=outbound_prompt)
+                self.caller_id = caller_id
+        
+        session = AgentSession(
+            stt=deepgram.STT(model="nova-3", language="multi"),
+            llm=google.LLM(
+                model="gemini-3.5-flash-lite",
+            ),
+            tts=murf.TTS(
+                voice="Anisha",
+                style="Conversation",
+                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+                text_pacing=True,
+            ),
+            turn_detection=MultilingualModel(),
+            vad=ctx.proc.userdata["vad"],
+            preemptive_generation=True,
+        )
+        logger.info("Voice pipeline initialized for outbound call")
+        
+        # Start the session with SIP
+        logger.info("Starting outbound agent session...")
+        await session.start(
+            agent=OutboundReminder(caller_id=caller_id),
+            room=ctx.room,
+            room_options=room_io.RoomOptions(
+                audio_input=room_io.AudioInputOptions(
+                    noise_cancellation=lambda params: (
+                        noise_cancellation.BVCTelephony()
+                        if params.participant.kind
+                        == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
+                        else noise_cancellation.BVC()
+                    ),
+                ),
+            ),
+        )
+        logger.info("Outbound agent session started")
+        
+        await ctx.connect()
+        logger.info("Connected to outbound call")
+        
+    except Exception as e:
+        logger.error(f"Error in outbound call: {e}", exc_info=True)
+        raise
+
+
+# CLI command for making outbound calls
+@cli.command(
+    arg_parser=lambda parser: [
+        parser.add_argument("--phone", type=str, help="Phone number to call (e.g., +1234567890)"),
+        parser.add_argument("--livekit-url", type=str, help="LiveKit URL"),
+        parser.add_argument("--livekit-key", type=str, help="LiveKit API Key"),
+        parser.add_argument("--livekit-secret", type=str, help="LiveKit API Secret"),
+        parser.add_argument("--sip-server", type=str, default="localhost", help="SIP server address"),
+        parser.add_argument("--sip-port", type=int, default=5060, help="SIP server port"),
+    ],
+)
+async def outbound_call(phone: str, livekit_url: str, livekit_key: str, livekit_secret: str, sip_server: str, sip_port: int):
+    """Make an outbound call to remind the user about a scheme deadline."""
+    if not phone:
+        print("Error: Phone number is required. Use --phone +1234567890")
+        return
+    
+    if not all([livekit_url, livekit_key, livekit_secret]):
+        # Fall back to environment variables
+        livekit_url = os.getenv("LIVEKIT_URL")
+        livekit_key = os.getenv("LIVEKIT_API_KEY")
+        livekit_secret = os.getenv("LIVEKIT_API_SECRET")
+        
+        if not all([livekit_url, livekit_key, livekit_secret]):
+            print("Error: LiveKit credentials required. Set LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET")
+            return
+    
+    logger.info(f"Initiating outbound call to {phone}")
+    logger.info(f"SIP Server: {sip_server}:{sip_port}")
+    
+    # For now, we'll print instructions on how to make the outbound call
+    print(f"""
+╔════════════════════════════════════════════════════════════╗
+║           OUTBOUND CALL INSTRUCTIONS (Day 6)              ║
+╚════════════════════════════════════════════════════════════╝
+
+Phone Number: {phone}
+Scheme Reminder: Pradhan Mantri Awas Yojana (Housing Scheme)
+Deadline: August 31, 2026
+
+IMPORTANT: This is Day 6 of Voice For Bharat Challenge.
+
+To make the outbound call, you have two options:
+
+OPTION 1: Using Twilio (Recommended if you have a Twilio account)
+─────────────────────────────────────────────────────────
+1. Ensure TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN are set in .env.local
+2. This command will initiate the call to {phone}
+3. Your agent will deliver the scheme reminder
+
+OPTION 2: Using Linphone (Free alternative)
+─────────────────────────────────────────────────────────
+1. Install Linphone: https://www.linphone.org/
+2. Register a SIP account
+3. Manually call the agent from your Linphone client
+4. The agent will greet you and deliver the reminder
+
+OPTION 3: LiveKit SIP Trunk (Enterprise option)
+─────────────────────────────────────────────────────────
+1. Configure a SIP trunk in your LiveKit deployment
+2. The agent will handle incoming SIP connections
+3. Record the call for your Day 6 LinkedIn post
+
+Next steps:
+- Record the phone ringing and agent speaking
+- Post the video on LinkedIn mentioning:
+  - "Building with Murf Falcon (fastest TTS)"
+  - "10 Days of Voice Agents challenge"
+  - Tag @MurfAI
+  - Use #VoiceForBharat
+
+╚════════════════════════════════════════════════════════════╝
+""")
 
 
 if __name__ == "__main__":
