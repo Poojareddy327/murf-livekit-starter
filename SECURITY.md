@@ -156,7 +156,7 @@ Before deploying:
 api_key = os.getenv("MURF_API_KEY")
 
 # DON'T DO THIS:
-api_key = "ap2_350219ed-fa2d-4a0b-ba0d-b1ae80e9ef0e"
+
 ```
 
 ### In Logs
@@ -173,9 +173,6 @@ logger.info(f"API Key: {api_key}")
 # DO THIS:
 Copy `backend/.env.example` to `backend/.env.local` and fill in your credentials.
 
-# DON'T DO THIS:
-Here's an example .env.local with real credentials:
-LIVEKIT_API_KEY=APIJGrs9v5wE58E
 ```
 
 ---
