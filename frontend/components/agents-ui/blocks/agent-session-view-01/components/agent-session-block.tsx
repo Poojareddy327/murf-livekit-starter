@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { Check, Copy, Radio, ShieldAlert, Sparkles, Zap } from 'lucide-react';
 import { AnimatePresence, type MotionProps, motion } from 'motion/react';
 import { useAgent, useSessionContext, useSessionMessages } from '@livekit/components-react';
 import { AgentChatTranscript } from '@/components/agents-ui/agent-chat-transcript';
@@ -102,58 +104,21 @@ export function Fade({ top = false, bottom = false, className }: FadeProps) {
 }
 
 export interface AgentSessionView_01Props {
-  /**
-   * Message shown above the controls before the first chat message is sent.
-   *
-   * @default 'Agent is listening, ask it a question'
-   */
   preConnectMessage?: string;
-  /**
-   * Enables or disables the chat toggle and transcript input controls.
-   *
-   * @default true
-   */
   supportsChatInput?: boolean;
-  /**
-   * Enables or disables camera controls in the bottom control bar.
-   *
-   * @default true
-   */
   supportsVideoInput?: boolean;
-  /**
-   * Enables or disables screen sharing controls in the bottom control bar.
-   *
-   * @default true
-   */
   supportsScreenShare?: boolean;
-  /**
-   * Shows a pre-connect buffer state with a shimmer message before messages appear.
-   *
-   * @default true
-   */
   isPreConnectBufferEnabled?: boolean;
-
-  /** Selects the visualizer style rendered in the main tile area. */
   audioVisualizerType?: 'bar' | 'wave' | 'grid' | 'radial' | 'aura';
-  /** Primary hex color used by supported audio visualizer variants. */
   audioVisualizerColor?: `#${string}`;
-  /** Hue shift intensity used by certain visualizers. */
   audioVisualizerColorShift?: number;
-  /** Number of bars to render when `audioVisualizerType` is `bar`. */
   audioVisualizerBarCount?: number;
-  /** Number of rows in the visualizer when `audioVisualizerType` is `grid`. */
   audioVisualizerGridRowCount?: number;
-  /** Number of columns in the visualizer when `audioVisualizerType` is `grid`. */
   audioVisualizerGridColumnCount?: number;
-  /** Number of radial bars when `audioVisualizerType` is `radial`. */
   audioVisualizerRadialBarCount?: number;
-  /** Base radius of the radial visualizer when `audioVisualizerType` is `radial`. */
   audioVisualizerRadialRadius?: number;
-  /** Stroke width of the wave path when `audioVisualizerType` is `wave`. */
   audioVisualizerWaveLineWidth?: number;
-  /** Optional class name merged onto the outer `<section>` container. */
   className?: string;
-  /** Callback function when the call ends */
   onCallEnd?: () => void;
 }
 
@@ -163,7 +128,6 @@ export function AgentSessionView_01({
   supportsVideoInput = true,
   supportsScreenShare = true,
   isPreConnectBufferEnabled = true,
-
   audioVisualizerType,
   audioVisualizerColor,
   audioVisualizerColorShift,
@@ -181,6 +145,7 @@ export function AgentSessionView_01({
   const session = useSessionContext();
   const { messages } = useSessionMessages(session);
   const [chatOpen, setChatOpen] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { state: agentState } = useAgent();
 
@@ -206,22 +171,27 @@ export function AgentSessionView_01({
     onCallEnd?.();
   };
 
-  // Generate status label based on agent state
   const getStatusLabel = () => {
     switch (agentState) {
       case 'connecting':
-        return 'Connecting...';
+        return 'Establishing LiveKit Voice Link...';
       case 'listening':
-        return 'Listening to you';
+        return 'Listening to your voice...';
       case 'thinking':
-        return 'Processing...';
+        return 'FinAssist AI is processing...';
       case 'speaking':
-        return 'FinAssist is speaking';
+        return 'FinAssist Speaking (Murf Falcon)';
       case 'idle':
-        return 'Ready';
+        return 'Agent Ready';
       default:
-        return '';
+        return 'Connecting...';
     }
+  };
+
+  const copyPromptText = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedPrompt(text);
+    setTimeout(() => setCopiedPrompt(null), 2000);
   };
 
   const statusLabel = getStatusLabel();
@@ -229,43 +199,74 @@ export function AgentSessionView_01({
   return (
     <section
       ref={ref}
-      className={cn('bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 relative z-10 h-full w-full overflow-hidden', className)}
+      className={cn(
+        'relative z-10 h-full w-full overflow-hidden bg-[#07090E] font-sans text-slate-100 selection:bg-cyan-500 selection:text-white',
+        className
+      )}
       {...props}
     >
-      <Fade top className="absolute inset-x-4 top-0 z-10 h-40 bg-gradient-to-b from-slate-950 to-transparent" />
+      {/* Background Ambient Mesh Light Glow */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute top-[-10%] right-[-10%] h-[500px] w-[500px] animate-pulse rounded-full bg-gradient-to-br from-cyan-600/15 via-blue-600/10 to-transparent blur-3xl" />
+        <div className="absolute bottom-[-10%] left-[-10%] h-[550px] w-[550px] animate-pulse rounded-full bg-gradient-to-tr from-purple-600/15 via-indigo-600/10 to-transparent blur-3xl delay-1000" />
+      </div>
 
-      {/* Status indicator - shown at the top */}
+      {/* Active Call Header Console Bar */}
+      <div className="pointer-events-auto absolute inset-x-4 top-4 z-30 flex items-center justify-between">
+        <div className="flex items-center gap-2.5 rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-2 shadow-xl backdrop-blur-xl">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 text-white">
+            <Zap className="h-4 w-4" />
+          </div>
+          <span className="text-xs font-bold tracking-wide text-white">FinAssist</span>
+          <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-extrabold text-cyan-300">
+            Live Session
+          </span>
+        </div>
+
+        <Link
+          href="/escalations"
+          target="_blank"
+          className="flex items-center gap-1.5 rounded-2xl border border-rose-500/40 bg-rose-950/80 px-3.5 py-2 text-xs font-bold text-rose-300 shadow-xl backdrop-blur-xl transition hover:border-rose-400 hover:bg-rose-900/90"
+        >
+          <ShieldAlert className="h-3.5 w-3.5 animate-pulse text-rose-400" />
+          <span>Dashboard</span>
+        </Link>
+      </div>
+
+      {/* Center Agent Status Indicator Pill */}
       {!chatOpen && statusLabel && (
-        <div className="absolute top-8 right-0 left-0 z-20 flex justify-center">
-          <div className="bg-slate-800/40 border-slate-700/50 rounded-full border px-6 py-3 shadow-lg backdrop-blur-sm">
-            <p className="text-white flex items-center gap-3 text-sm font-semibold">
+        <div className="pointer-events-none absolute top-16 right-0 left-0 z-20 flex justify-center">
+          <div className="rounded-full border border-slate-800 bg-slate-900/80 px-6 py-2.5 shadow-2xl backdrop-blur-2xl">
+            <p className="flex items-center gap-3 text-xs font-extrabold tracking-wide text-white">
               {(agentState === 'listening' || agentState === 'thinking') && (
                 <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75"></span>
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-cyan-500"></span>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-cyan-500" />
                 </span>
               )}
               {agentState === 'speaking' && (
                 <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-blue-400 opacity-75"></span>
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500"></span>
+                  <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
                 </span>
               )}
               {agentState === 'connecting' && (
-                <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-yellow-400"></span>
+                <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-amber-400" />
               )}
               {agentState === 'idle' && (
                 <span className="relative flex h-2.5 w-2.5">
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500"></span>
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
                 </span>
               )}
-              <span>{statusLabel}</span>
+              <span className="bg-gradient-to-r from-cyan-300 via-sky-200 to-slate-100 bg-clip-text text-transparent">
+                {statusLabel}
+              </span>
             </p>
           </div>
         </div>
       )}
 
-      {/* transcript */}
+      {/* Transcript View */}
       <div className="absolute top-0 bottom-[135px] flex w-full flex-col md:bottom-[170px]">
         <AnimatePresence>
           {chatOpen && (
@@ -282,7 +283,8 @@ export function AgentSessionView_01({
           )}
         </AnimatePresence>
       </div>
-      {/* Tile layout */}
+
+      {/* Tile Layout Audio Visualizer */}
       <TileLayout
         chatOpen={chatOpen}
         audioVisualizerType={audioVisualizerType}
@@ -295,12 +297,12 @@ export function AgentSessionView_01({
         audioVisualizerGridColumnCount={audioVisualizerGridColumnCount}
         audioVisualizerWaveLineWidth={audioVisualizerWaveLineWidth}
       />
-      {/* Bottom */}
+
+      {/* Bottom Controls Bar */}
       <motion.div
         {...BOTTOM_VIEW_MOTION_PROPS}
         className="absolute inset-x-3 bottom-0 z-50 md:inset-x-12"
       >
-        {/* Pre-connect message */}
         {isPreConnectBufferEnabled && (
           <AnimatePresence>
             {messages.length === 0 && (
@@ -309,15 +311,15 @@ export function AgentSessionView_01({
                 duration={2}
                 aria-hidden={messages.length > 0}
                 {...SHIMMER_MOTION_PROPS}
-                className="pointer-events-none mx-auto block w-full max-w-2xl pb-4 text-center text-sm font-semibold text-slate-300"
+                className="pointer-events-none mx-auto block w-full max-w-2xl pb-4 text-center text-xs font-bold tracking-wider text-slate-300 uppercase"
               >
-                🎤 Ready to talk about your banking needs?
+                🎤 Speak clearly into your microphone to talk with FinAssist
               </MotionMessage>
             )}
           </AnimatePresence>
         )}
-        <div className="bg-slate-950/50 relative mx-auto max-w-2xl pb-3 md:pb-12 backdrop-blur-sm rounded-t-2xl">
-          <Fade bottom className="absolute inset-x-0 top-0 h-4 -translate-y-full bg-gradient-to-t from-slate-900 to-transparent" />
+
+        <div className="relative mx-auto max-w-2xl rounded-t-3xl border-t border-slate-800/80 bg-slate-950/80 pb-4 shadow-2xl backdrop-blur-2xl md:pb-10">
           <AgentControlBar
             variant="livekit"
             controls={controls}

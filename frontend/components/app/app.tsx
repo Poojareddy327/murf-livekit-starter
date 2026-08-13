@@ -31,7 +31,7 @@ export function App({ appConfig }: AppProps) {
     if (typeof process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT === 'string') {
       return getSandboxTokenSource(appConfig);
     }
-    
+
     // Use simple endpoint - it handles token generation
     return TokenSource.endpoint('/api/token');
   }, [appConfig]);

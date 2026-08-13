@@ -44,6 +44,7 @@ export function ViewController({ appConfig }: ViewControllerProps) {
   const { isConnected, start, end, connectionState } = useSessionContext();
   const { resolvedTheme } = useTheme();
   const [hasEnded, setHasEnded] = useState(false);
+  const [wasConnected, setWasConnected] = useState(false);
   const [microphoneError, setMicrophoneError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -51,40 +52,45 @@ export function ViewController({ appConfig }: ViewControllerProps) {
     // Reset states when connection is successful
     if (isConnected) {
       setHasEnded(false);
+      setWasConnected(true);
       setMicrophoneError(null);
       setIsConnecting(false);
     }
   }, [isConnected]);
 
   useEffect(() => {
-    // Detect disconnection and show call ended view
+    // Detect disconnection and show call ended view ONLY if it was previously connected
     if (
       !isConnected &&
       connectionState === ConnectionState.Disconnected &&
       !microphoneError &&
       !hasEnded &&
-      isConnecting
+      wasConnected
     ) {
       setHasEnded(true);
       setIsConnecting(false);
+      setWasConnected(false);
     }
-  }, [isConnected, connectionState, microphoneError, hasEnded, isConnecting]);
+  }, [isConnected, connectionState, microphoneError, hasEnded, wasConnected]);
 
   const handleStartCall = async () => {
     setMicrophoneError(null);
     setHasEnded(false);
+    setWasConnected(false);
     setIsConnecting(true);
 
     try {
       // Get saved username from localStorage and pass to backend
-      const savedUserName = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
-      
+      const savedUserName =
+        typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+
       // Use room options to pass userName to token endpoint
       const roomOptions = savedUserName ? { userName: savedUserName } : undefined;
       await start(roomOptions);
     } catch (error) {
       console.error('Failed to start call:', error);
       setIsConnecting(false);
+      setWasConnected(false);
 
       // Check if it's a microphone permission error
       if (error instanceof Error) {
@@ -111,6 +117,7 @@ export function ViewController({ appConfig }: ViewControllerProps) {
 
   const handleRestartCall = () => {
     setHasEnded(false);
+    setWasConnected(false);
     setMicrophoneError(null);
     setIsConnecting(false);
   };
@@ -171,6 +178,7 @@ export function ViewController({ appConfig }: ViewControllerProps) {
           onCallEnd={() => {
             end();
             setHasEnded(true);
+            setWasConnected(false);
           }}
           className="fixed inset-0"
         />

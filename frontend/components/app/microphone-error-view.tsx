@@ -1,5 +1,5 @@
-import { Button } from '@/components/ui/button';
 import { AlertCircle, Mic } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface MicrophoneErrorViewProps {
   errorMessage: string;
@@ -12,43 +12,46 @@ export const MicrophoneErrorView = ({
   ref,
 }: React.ComponentProps<'div'> & MicrophoneErrorViewProps) => {
   return (
-    <div ref={ref} className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center px-4 overflow-hidden">
+    <div
+      ref={ref}
+      className="flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 px-4"
+    >
       {/* Animated warning indicator background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-red-500/5 rounded-full blur-3xl animate-pulse" />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 right-1/4 h-96 w-96 animate-pulse rounded-full bg-red-500/5 blur-3xl" />
       </div>
 
-      <div className="max-w-md text-center relative z-10">
-        <div className="mb-6 animate-fade-in-down">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-900/40 to-rose-900/40 border border-red-500/30 flex items-center justify-center animate-pulse-alert">
-            <Mic className="w-10 h-10 text-red-400" />
+      <div className="relative z-10 max-w-md text-center">
+        <div className="animate-fade-in-down mb-6">
+          <div className="animate-pulse-alert flex h-20 w-20 items-center justify-center rounded-full border border-red-500/30 bg-gradient-to-br from-red-900/40 to-rose-900/40">
+            <Mic className="h-10 w-10 text-red-400" />
           </div>
         </div>
 
-        <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 animate-fade-in-up">
+        <h2 className="animate-fade-in-up mb-3 text-3xl font-bold text-white md:text-4xl">
           Microphone Access Needed
         </h2>
 
-        <p className="text-slate-300 mb-6 leading-relaxed animate-fade-in-up delay-100">
+        <p className="animate-fade-in-up mb-6 leading-relaxed text-slate-300 delay-100">
           {errorMessage}
         </p>
 
         {/* Instructions Card with staggered animation */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-800/30 border border-slate-700/50 rounded-lg p-5 mb-8 text-left animate-fade-in-up delay-200 hover:border-blue-500/30 transition-colors">
-          <p className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-blue-400 animate-bounce-small" />
+        <div className="animate-fade-in-up mb-8 rounded-lg border border-slate-700/50 bg-gradient-to-br from-slate-800/50 to-slate-800/30 p-5 text-left transition-colors delay-200 hover:border-blue-500/30">
+          <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+            <AlertCircle className="animate-bounce-small h-4 w-4 text-blue-400" />
             How to fix this:
           </p>
-          <ol className="text-sm text-slate-300 space-y-2">
-            <li className="flex gap-3 hover:translate-x-1 transition-transform">
+          <ol className="space-y-2 text-sm text-slate-300">
+            <li className="flex gap-3 transition-transform hover:translate-x-1">
               <span className="flex-shrink-0 font-bold text-cyan-400">1.</span>
               <span>Look for the microphone icon in your browser's address bar</span>
             </li>
-            <li className="flex gap-3 hover:translate-x-1 transition-transform">
+            <li className="flex gap-3 transition-transform hover:translate-x-1">
               <span className="flex-shrink-0 font-bold text-cyan-400">2.</span>
               <span>Click it and select "Allow" to enable microphone access</span>
             </li>
-            <li className="flex gap-3 hover:translate-x-1 transition-transform">
+            <li className="flex gap-3 transition-transform hover:translate-x-1">
               <span className="flex-shrink-0 font-bold text-cyan-400">3.</span>
               <span>Click the Retry button below</span>
             </li>
@@ -58,12 +61,12 @@ export const MicrophoneErrorView = ({
         <Button
           size="lg"
           onClick={onRetry}
-          className="w-full rounded-xl px-8 py-6 text-base font-semibold bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-600 hover:to-blue-600 shadow-lg shadow-cyan-500/20 hover:shadow-xl hover:shadow-cyan-500/30 transition-all duration-200 transform hover:scale-105 active:scale-95 animate-fade-in-up delay-300"
+          className="animate-fade-in-up w-full transform rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-8 py-6 text-base font-semibold text-white shadow-lg shadow-cyan-500/20 transition-all delay-300 duration-200 hover:scale-105 hover:from-cyan-600 hover:to-blue-600 hover:shadow-xl hover:shadow-cyan-500/30 active:scale-95"
         >
           Retry
         </Button>
 
-        <p className="text-slate-500 mt-6 text-xs animate-fade-in-up delay-400">
+        <p className="animate-fade-in-up mt-6 text-xs text-slate-500 delay-400">
           Your microphone access is essential for voice conversations with FinAssist
         </p>
       </div>

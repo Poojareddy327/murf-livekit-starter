@@ -152,7 +152,7 @@ export function TileLayout({
                     isChatOpen={chatOpen}
                     className={cn(
                       'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
-                      'bg-gradient-to-br from-slate-800/40 to-slate-900/40 rounded-[50px] border border-slate-700/30 transition-[border,drop-shadow] backdrop-blur-sm',
+                      'rounded-[50px] border border-slate-700/30 bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-sm transition-[border,drop-shadow]',
                       chatOpen && 'border-slate-600/50 shadow-2xl/10 delay-200'
                     )}
                     style={{ color: audioVisualizerColor ?? '#06b6d4' }}
@@ -240,7 +240,7 @@ export function TileLayout({
                     trackRef={cameraTrack || screenShareTrack}
                     width={(cameraTrack || screenShareTrack)?.publication.dimensions?.width ?? 0}
                     height={(cameraTrack || screenShareTrack)?.publication.dimensions?.height ?? 0}
-                    className="bg-slate-800 aspect-square size-[90px] rounded-lg object-cover border border-slate-700/50"
+                    className="aspect-square size-[90px] rounded-lg border border-slate-700/50 bg-slate-800 object-cover"
                   />
                 </motion.div>
               )}

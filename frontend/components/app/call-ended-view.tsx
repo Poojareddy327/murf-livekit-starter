@@ -1,11 +1,11 @@
-import { Button } from '@/components/ui/button';
 import { CheckCircle2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 function CallEndedIcon() {
   return (
     <div className="mb-6">
-      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-900/40 to-emerald-900/40 border border-green-500/30 flex items-center justify-center animate-scale-pulse">
-        <CheckCircle2 className="w-10 h-10 text-green-400 animate-bounce-rotate" />
+      <div className="animate-scale-pulse flex h-20 w-20 items-center justify-center rounded-full border border-green-500/30 bg-gradient-to-br from-green-900/40 to-emerald-900/40">
+        <CheckCircle2 className="animate-bounce-rotate h-10 w-10 text-green-400" />
       </div>
     </div>
   );
@@ -20,42 +20,54 @@ export const CallEndedView = ({
   ref,
 }: React.ComponentProps<'div'> & CallEndedViewProps) => {
   return (
-    <div ref={ref} className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center px-4 overflow-hidden">
+    <div
+      ref={ref}
+      className="flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 px-4"
+    >
       {/* Animated confetti-style background elements */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/4 right-1/4 w-2 h-2 rounded-full bg-green-400/40 animate-float-slow" style={{ animationDelay: '0s' }} />
-        <div className="absolute top-1/3 left-1/4 w-2 h-2 rounded-full bg-cyan-400/30 animate-float-slow" style={{ animationDelay: '0.5s' }} />
-        <div className="absolute bottom-1/3 right-1/3 w-2 h-2 rounded-full bg-blue-400/30 animate-float-slow" style={{ animationDelay: '1s' }} />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          className="animate-float-slow absolute top-1/4 right-1/4 h-2 w-2 rounded-full bg-green-400/40"
+          style={{ animationDelay: '0s' }}
+        />
+        <div
+          className="animate-float-slow absolute top-1/3 left-1/4 h-2 w-2 rounded-full bg-cyan-400/30"
+          style={{ animationDelay: '0.5s' }}
+        />
+        <div
+          className="animate-float-slow absolute right-1/3 bottom-1/3 h-2 w-2 rounded-full bg-blue-400/30"
+          style={{ animationDelay: '1s' }}
+        />
       </div>
 
-      <div className="max-w-md text-center relative z-10">
+      <div className="relative z-10 max-w-md text-center">
         <div className="animate-fade-in-down">
           <CallEndedIcon />
         </div>
 
-        <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 animate-fade-in-up">
+        <h2 className="animate-fade-in-up mb-3 text-3xl font-bold text-white md:text-4xl">
           Conversation Ended
         </h2>
 
-        <p className="text-slate-300 mb-8 leading-relaxed animate-fade-in-up delay-100">
+        <p className="animate-fade-in-up mb-8 leading-relaxed text-slate-300 delay-100">
           Thank you for chatting with FinAssist. Your conversation has been completed successfully.
         </p>
 
-        <div className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-4 mb-8 animate-fade-in-up delay-200 hover:border-green-500/30 transition-colors">
+        <div className="animate-fade-in-up mb-8 rounded-lg border border-slate-700/50 bg-slate-800/30 p-4 transition-colors delay-200 hover:border-green-500/30">
           <p className="text-sm text-slate-400">
-            ✓ Session ended securely  •  Your data is protected
+            ✓ Session ended securely • Your data is protected
           </p>
         </div>
 
         <Button
           size="lg"
           onClick={onStartAgain}
-          className="w-full rounded-xl px-8 py-6 text-base font-semibold bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-600 hover:to-blue-600 shadow-lg shadow-cyan-500/20 hover:shadow-xl hover:shadow-cyan-500/30 transition-all duration-200 transform hover:scale-105 active:scale-95 animate-fade-in-up delay-300"
+          className="animate-fade-in-up w-full transform rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-8 py-6 text-base font-semibold text-white shadow-lg shadow-cyan-500/20 transition-all delay-300 duration-200 hover:scale-105 hover:from-cyan-600 hover:to-blue-600 hover:shadow-xl hover:shadow-cyan-500/30 active:scale-95"
         >
           Start Conversation Again
         </Button>
 
-        <p className="text-slate-500 mt-6 text-sm animate-fade-in-up delay-400">
+        <p className="animate-fade-in-up mt-6 text-sm text-slate-500 delay-400">
           Need help? Contact your bank's customer support
         </p>
       </div>
