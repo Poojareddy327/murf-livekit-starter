@@ -1419,7 +1419,7 @@ async def my_agent(ctx: JobContext):
         session = AgentSession(
             stt=deepgram.STT(model="nova-3", language="multi"),
             llm=google.LLM(
-                model="gemini-3.5-flash",
+                model="gemini-1.5-flash",
             ),
             tts=murf.TTS(
                 voice="Pooja",
@@ -1549,7 +1549,7 @@ You are making an outbound call to remind the user about an upcoming scheme dead
             session = AgentSession(
                 stt=deepgram.STT(model="nova-3", language="multi"),
                 llm=google.LLM(
-                    model="gemini-3.5-flash",
+                    model="gemini-1.5-flash",
                 ),
                 tts=murf.TTS(
                     voice="Pooja",
