@@ -1,3 +1,11 @@
+"""
+Agent for voice-based conversations
+Supports multiple voices for different contexts:
+- Greeting voice: for initial greetings and welcomes
+- Explanation voice: for detailed information and schemes
+- Default voice: for general conversation
+"""
+
 import json
 import logging
 import os
@@ -11,11 +19,14 @@ from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
+from voice_manager import VoiceManager, VoiceType
+from voice_switcher import VoiceSwitcher, MultiVoiceAgent
 from livekit import rtc
 from livekit.agents import (
     Agent,
     AgentServer,
     AgentSession,
+    ChatContext,
     JobContext,
     JobProcess,
     RunContext,
@@ -23,18 +34,20 @@ from livekit.agents import (
     function_tool,
     room_io,
     tokenize,
+    tts,
 )
 
 try:
     from livekit.agents import sip
 except ImportError:
     sip = None
-from livekit.plugins import stt, llm, tts, noise_cancellation, vad
+from livekit.plugins import deepgram, google, murf, noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 # Optional telephony imports
 try:
-    from telephony.rest import Client as TelephonyClient
+    import telephony.rest  # noqa: F401
+
     HAS_TELEPHONY = True
 except ImportError:
     HAS_TELEPHONY = False
@@ -670,6 +683,12 @@ You cannot access:
 - Loan approval status
 - Personal banking records
 
+SPECIALIST AGENT HANDOFF (DAY 9)
+You have access to a dedicated Government Scheme Specialist.
+When a user asks detailed questions about government banking schemes, PM Awas Yojana, PM Jan Dhan Yojana, Sukanya Samriddhi Yojana, Mudra loans, or scheme eligibility:
+1. CALL the transfer_to_scheme_specialist tool to transfer the caller to the Government Scheme Specialist.
+2. Say: "Transferring you to our Government Scheme Specialist."
+
 LANGUAGE & SCRIPT
 Always write every language in its own native script.
 - Hindi → Devanagari (नमस्ते), never romanized (never "namaste").
@@ -711,7 +730,7 @@ When users ask about banking schemes, government benefits, or "what schemes am I
    - Age (if relevant)
    - Income level ("low", "middle", or "high")
    - Employment type ("student", "salaried", "self_employed", "retired")
-2. Call check_scheme_eligibility() with the information they've shared
+2. Call check_scheme_eligibility() or transfer_to_scheme_specialist() for in-depth scheme consultation
 3. Present the results naturally - don't read raw data, explain benefits in simple language
 4. Always mention that data is current as of August 2026
 5. If API fails or times out, say: "I'm having trouble checking schemes right now. Please contact your bank directly or visit their website for the latest information."
@@ -776,11 +795,261 @@ FIRST GREETING (New Caller - Inbound)
 """
 
 
+SCHEME_SPECIALIST_PROMPT = """
+IDENTITY
+You are the Government Scheme Specialist for FinAssist.
+You are a dedicated expert on government banking and financial schemes in India, including:
+- Pradhan Mantri Awas Yojana (PMAY - Housing Loan Subsidy)
+- Pradhan Mantri Jan Dhan Yojana (PMJDY - Financial Inclusion)
+- Sukanya Samriddhi Yojana (SSY - Girl Child Savings)
+- Pradhan Mantri Mudra Yojana (PMMY - Business Loans)
+- Pradhan Mantri Suraksha Bima Yojana (PMSBY - Accident Insurance)
+- Senior Citizen Savings Scheme (SCSS)
+
+OBJECTIVES
+1. Guide callers on government scheme features, eligibility guidelines, required documents, and application processes.
+2. Perform scheme eligibility checks using the check_scheme_eligibility tool.
+3. Provide clear step-by-step guidance on government benefits and subsidies.
+
+LIMITS & HANDOFF BACK
+- You handle government banking schemes exclusively.
+- If the user asks for general banking help (e.g. debit card blocking, password reset, account issues, general support):
+  CALL the transfer_to_main_assistant tool to hand them back to FinAssist main support.
+
+LANGUAGE & SCRIPT
+Always write every language in its own native script.
+Hindi → Devanagari (नमस्ते), never romanized (never "namaste").
+Same rule for all non-English languages.
+Mirror the user's language when responding.
+
+STYLE
+Be knowledgeable, empathetic, polite, clear, and concise.
+Never use emojis or complex markdown formatting.
+"""
+
+
+async def check_scheme_eligibility_impl(
+    agent_instance: Agent,
+    age: int | None = None,
+    income_level: str | None = None,
+    employment_type: str | None = None,
+) -> str:
+    """Helper function to perform scheme eligibility checks for agents."""
+    try:
+        logger.info(
+            f"Checking scheme eligibility for age={age}, income={income_level}, employment={employment_type}"
+        )
+
+        eligible_schemes = []
+        eligible_schemes.append(
+            {
+                "name": "Basic Savings Account",
+                "benefit": "Zero balance account with free digital banking",
+                "requirement": "Open to all Indian residents",
+            }
+        )
+
+        if age is not None:
+            if age < 18:
+                eligible_schemes.append(
+                    {
+                        "name": "Sukanya Samriddhi Yojana",
+                        "benefit": "High interest rate savings for girls, tax benefits",
+                        "requirement": "Girls under 10 years old",
+                    }
+                )
+            elif 18 <= age <= 60:
+                eligible_schemes.append(
+                    {
+                        "name": "Pradhan Mantri Jan Dhan Yojana",
+                        "benefit": "Free life insurance of 30,000 rupees, overdraft facility",
+                        "requirement": "Indian citizens 18-60 years",
+                    }
+                )
+                eligible_schemes.append(
+                    {
+                        "name": "Pradhan Mantri Suraksha Bima Yojana",
+                        "benefit": "Accident insurance for 2 lakh rupees at just 12 rupees per year",
+                        "requirement": "Age 18-70 years with active bank account",
+                    }
+                )
+            elif age > 60:
+                eligible_schemes.append(
+                    {
+                        "name": "Senior Citizen Savings Scheme",
+                        "benefit": "Higher interest rates on deposits, tax benefits",
+                        "requirement": "Citizens aged 60 and above",
+                    }
+                )
+
+        if income_level == "low":
+            eligible_schemes.append(
+                {
+                    "name": "Pradhan Mantri Mudra Yojana",
+                    "benefit": "Unsecured loans up to 10 lakh rupees for small business",
+                    "requirement": "Self-employed and entrepreneurs with low income",
+                }
+            )
+        elif income_level == "middle":
+            eligible_schemes.append(
+                {
+                    "name": "Pradhan Mantri Awas Yojana",
+                    "benefit": "Home loan subsidy up to 2.67 lakh rupees",
+                    "requirement": "Middle-income families",
+                }
+            )
+
+        if employment_type == "student":
+            eligible_schemes.append(
+                {
+                    "name": "Student Scholarship Account",
+                    "benefit": "Special savings account with educational benefits and low fees",
+                    "requirement": "Full-time students with valid ID",
+                }
+            )
+        elif employment_type == "salaried":
+            eligible_schemes.append(
+                {
+                    "name": "Salary Account Benefits",
+                    "benefit": "Competitive overdraft limits, cashback on transactions",
+                    "requirement": "Salaried individuals with monthly deposits",
+                }
+            )
+        elif employment_type == "self_employed":
+            eligible_schemes.append(
+                {
+                    "name": "Business Loan Schemes",
+                    "benefit": "Collateral-free loans up to 50 lakh rupees",
+                    "requirement": "Self-employed with business registration",
+                }
+            )
+
+        if not eligible_schemes:
+            return "I couldn't determine your eligibility without more information. Please share your age, income level, or employment type so I can suggest suitable schemes."
+
+        scheme_names = ", ".join([s["name"] for s in eligible_schemes[:2]])
+        if hasattr(agent_instance, "mark_success"):
+            agent_instance.mark_success(
+                f"Completed scheme eligibility check ({scheme_names})"
+            )
+
+        response = (
+            "Based on your profile, you may be eligible for these banking schemes:\n\n"
+        )
+        for i, scheme in enumerate(eligible_schemes, 1):
+            response += f"{i}. {scheme['name']}: {scheme['benefit']}. "
+
+        response += "\nFor detailed information and to apply, please visit your bank's website or contact your nearest branch. All data is current as of August 2026."
+
+        logger.info(f"Returning {len(eligible_schemes)} eligible schemes")
+        return response
+
+    except Exception as e:
+        logger.error(f"Error checking scheme eligibility: {e}", exc_info=True)
+        return "I'm unable to check scheme eligibility at the moment. Please contact your bank directly for information about available schemes."
+
+
+class SchemeSpecialistAgent(Agent):
+    """Specialist agent focused exclusively on Government Banking Schemes."""
+
+    def __init__(
+        self,
+        chat_ctx: ChatContext | None = None,
+        caller_id: str = "voice_user_default",
+        caller_name: str | None = None,
+        user_name: str | None = None,
+        tts_instance: tts.TTS | None = None,
+    ) -> None:
+        if tts_instance is None:
+            try:
+                tts_instance = murf.TTS(
+                    voice="Samar",
+                    style="Conversation",
+                    tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+                    text_pacing=True,
+                )
+            except Exception:
+                tts_instance = None
+
+        super().__init__(
+            instructions=SCHEME_SPECIALIST_PROMPT,
+            chat_ctx=chat_ctx,
+            tts=tts_instance,
+        )
+        self.caller_id = caller_id
+        self.caller_name = caller_name
+        self.user_name = user_name
+        
+        # Initialize voice switcher for multi-voice support (Day 9)
+        self.voice_switcher = VoiceSwitcher()
+        self.multi_voice_agent = MultiVoiceAgent()
+        logger.info("Voice switcher initialized for specialist agent")
+
+    async def on_enter(self) -> None:
+        """Greeting when specialist agent takes over conversation."""
+        # Use voice switcher to select greeting voice (Day 9)
+        greeting_text = "Namaste! I am Samar, your Government Scheme Specialist. How can I help you with PMAY, Jan Dhan Yojana, or Mudra loans today?"
+        greeting_data = self.multi_voice_agent.process_greeting(greeting_text)
+        logger.info(f"Using {greeting_data['voice_type']} voice for specialist greeting: {greeting_data['voice_id']}")
+        
+        await self.session.say(greeting_text)
+
+    @function_tool
+    async def check_scheme_eligibility(
+        self,
+        context: RunContext,
+        age: int | None = None,
+        income_level: str | None = None,
+        employment_type: str | None = None,
+    ) -> str:
+        """Check banking scheme eligibility based on user profile.
+
+        Args:
+            age: User's age (optional)
+            income_level: Income range - 'low', 'middle', 'high' (optional)
+            employment_type: 'student', 'salaried', 'self_employed', 'retired' (optional)
+
+        Returns:
+            A natural language summary of eligible schemes with key benefits.
+        """
+        return await check_scheme_eligibility_impl(
+            self, age=age, income_level=income_level, employment_type=employment_type
+        )
+
+    @function_tool
+    async def transfer_to_main_assistant(self, context: RunContext) -> Agent:
+        """Transfer the user back to the main FinAssist assistant for general banking inquiries, card blocking, or account support."""
+        return Assistant(
+            caller_id=self.caller_id,
+            user_name=self.user_name,
+            chat_ctx=self.chat_ctx.copy(exclude_instructions=True),
+        )
+
+
 class Assistant(Agent):
     def __init__(
-        self, caller_id: str = "voice_user_default", user_name: str | None = None
+        self,
+        caller_id: str = "voice_user_default",
+        user_name: str | None = None,
+        chat_ctx: ChatContext | None = None,
+        tts_instance: tts.TTS | None = None,
     ) -> None:
-        super().__init__(instructions=SYSTEM_PROMPT)
+        if tts_instance is None:
+            try:
+                tts_instance = murf.TTS(
+                    voice="Pooja",
+                    style="Conversation",
+                    tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+                    text_pacing=True,
+                )
+            except Exception:
+                tts_instance = None
+
+        super().__init__(
+            instructions=SYSTEM_PROMPT,
+            chat_ctx=chat_ctx,
+            tts=tts_instance,
+        )
         self.caller_id = caller_id
         self.caller_name = None
         self.user_name = user_name
@@ -791,12 +1060,46 @@ class Assistant(Agent):
         self.outcome_reason = (
             "Call ended before completing an eligibility check, inquiry, or escalation"
         )
+        
+        # Initialize voice switcher for multi-voice support (Day 9)
+        self.voice_switcher = VoiceSwitcher()
+        self.multi_voice_agent = MultiVoiceAgent()
+        logger.info("Voice switcher initialized for multi-voice support")
+
+    async def on_enter(self) -> None:
+        """Greeting when main Assistant joins the room."""
+        # Use voice switcher to select greeting voice (Day 9)
+        greeting_text = "Namaste! Welcome to FinAssist Banking Support. I am Pooja. How can I assist you today?"
+        greeting_data = self.multi_voice_agent.process_greeting(greeting_text)
+        logger.info(f"Using {greeting_data['voice_type']} voice for greeting: {greeting_data['voice_id']}")
+        
+        await self.session.say(greeting_text)
 
     def mark_success(self, reason: str):
         """Mark the current call session as successful with a specific outcome reason."""
         self.status = "success"
         self.outcome_reason = reason
         logger.info(f"Call session {self.call_id} marked SUCCESS: {reason}")
+    
+    def get_voice_for_text(self, text: str) -> dict:
+        """Get appropriate voice configuration for a given text based on context.
+        
+        Day 9 Feature: Returns voice ID and type based on whether text is greeting or explanation.
+        
+        Returns:
+            dict with voice_id, voice_type, and style
+        """
+        return self.multi_voice_agent.process_message(text)
+
+    @function_tool
+    async def transfer_to_scheme_specialist(self, context: RunContext) -> Agent:
+        """Transfer the user to the Government Scheme Specialist for government banking schemes, PM Awas Yojana, PM Jan Dhan, Sukanya Samriddhi, Mudra loans, or scheme eligibility queries."""
+        return SchemeSpecialistAgent(
+            chat_ctx=self.chat_ctx.copy(exclude_instructions=True),
+            caller_id=self.caller_id,
+            caller_name=self.caller_name,
+            user_name=self.user_name,
+        )
 
     @function_tool
     async def lookup_caller(self, context: RunContext) -> str:
@@ -942,121 +1245,9 @@ class Assistant(Agent):
         Returns:
             A natural language summary of eligible schemes with key benefits.
         """
-        try:
-            logger.info(
-                f"Checking scheme eligibility for age={age}, income={income_level}, employment={employment_type}"
-            )
-
-            # Eligibility matrix based on user profile
-            eligible_schemes = []
-
-            # Basic scheme for everyone
-            eligible_schemes.append(
-                {
-                    "name": "Basic Savings Account",
-                    "benefit": "Zero balance account with free digital banking",
-                    "requirement": "Open to all Indian residents",
-                }
-            )
-
-            # Age-based schemes
-            if age is not None:
-                if age < 18:
-                    eligible_schemes.append(
-                        {
-                            "name": "Sukanya Samriddhi Yojana",
-                            "benefit": "High interest rate savings for girls, tax benefits",
-                            "requirement": "Girls under 10 years old",
-                        }
-                    )
-                elif 18 <= age <= 60:
-                    eligible_schemes.append(
-                        {
-                            "name": "Pradhan Mantri Jan Dhan Yojana",
-                            "benefit": "Free life insurance of 30,000 rupees, overdraft facility",
-                            "requirement": "Indian citizens 18-60 years",
-                        }
-                    )
-                    eligible_schemes.append(
-                        {
-                            "name": "Pradhan Mantri Suraksha Bima Yojana",
-                            "benefit": "Accident insurance for 2 lakh rupees at just 12 rupees per year",
-                            "requirement": "Age 18-70 years with active bank account",
-                        }
-                    )
-                elif age > 60:
-                    eligible_schemes.append(
-                        {
-                            "name": "Senior Citizen Savings Scheme",
-                            "benefit": "Higher interest rates on deposits, tax benefits",
-                            "requirement": "Citizens aged 60 and above",
-                        }
-                    )
-
-            # Income-based schemes
-            if income_level == "low":
-                eligible_schemes.append(
-                    {
-                        "name": "Pradhan Mantri Mudra Yojana",
-                        "benefit": "Unsecured loans up to 10 lakh rupees for small business",
-                        "requirement": "Self-employed and entrepreneurs with low income",
-                    }
-                )
-            elif income_level == "middle":
-                eligible_schemes.append(
-                    {
-                        "name": "Pradhan Mantri Awas Yojana",
-                        "benefit": "Home loan subsidy up to 2.67 lakh rupees",
-                        "requirement": "Middle-income families",
-                    }
-                )
-
-            # Employment-based schemes
-            if employment_type == "student":
-                eligible_schemes.append(
-                    {
-                        "name": "Student Scholarship Account",
-                        "benefit": "Special savings account with educational benefits and low fees",
-                        "requirement": "Full-time students with valid ID",
-                    }
-                )
-            elif employment_type == "salaried":
-                eligible_schemes.append(
-                    {
-                        "name": "Salary Account Benefits",
-                        "benefit": "Competitive overdraft limits, cashback on transactions",
-                        "requirement": "Salaried individuals with monthly deposits",
-                    }
-                )
-            elif employment_type == "self_employed":
-                eligible_schemes.append(
-                    {
-                        "name": "Business Loan Schemes",
-                        "benefit": "Collateral-free loans up to 50 lakh rupees",
-                        "requirement": "Self-employed with business registration",
-                    }
-                )
-
-            if not eligible_schemes:
-                return "I couldn't determine your eligibility without more information. Please share your age, income level, or employment type so I can suggest suitable schemes."
-
-            # Mark call session as successful
-            scheme_names = ", ".join([s["name"] for s in eligible_schemes[:2]])
-            self.mark_success(f"Completed scheme eligibility check ({scheme_names})")
-
-            # Format response naturally
-            response = "Based on your profile, you may be eligible for these banking schemes:\n\n"
-            for i, scheme in enumerate(eligible_schemes, 1):
-                response += f"{i}. {scheme['name']}: {scheme['benefit']}. "
-
-            response += "\nFor detailed information and to apply, please visit your bank's website or contact your nearest branch. All data is current as of August 2026."
-
-            logger.info(f"Returning {len(eligible_schemes)} eligible schemes")
-            return response
-
-        except Exception as e:
-            logger.error(f"Error checking scheme eligibility: {e}", exc_info=True)
-            return "I'm unable to check scheme eligibility at the moment. Please contact your bank directly for information about available schemes."
+        return await check_scheme_eligibility_impl(
+            self, age=age, income_level=income_level, employment_type=employment_type
+        )
 
     @function_tool
     async def create_escalation(
@@ -1211,29 +1402,27 @@ async def my_agent(ctx: JobContext):
             # Get participants from the room
             participants = ctx.room.remote_participants
             for participant in participants.values():
-                if participant.identity != "agent":
-                    # Try to extract user_name from participant metadata
-                    if participant.metadata:
-                        try:
-                            metadata = json.loads(participant.metadata)
-                            user_name = metadata.get("user_name")
-                            if user_name:
-                                logger.info(
-                                    f"Extracted user_name from participant: {user_name}"
-                                )
-                                break
-                        except Exception as e:
-                            logger.warning(f"Failed to parse participant metadata: {e}")
+                if participant.identity != "agent" and participant.metadata:
+                    try:
+                        metadata = json.loads(participant.metadata)
+                        user_name = metadata.get("user_name")
+                        if user_name:
+                            logger.info(
+                                f"Extracted user_name from participant: {user_name}"
+                            )
+                            break
+                    except Exception as e:
+                        logger.warning(f"Failed to parse participant metadata: {e}")
         except Exception as e:
             logger.warning(f"Error extracting user_name from participants: {e}")
 
         session = AgentSession(
-            stt=stt.STT(model="nova-3", language="multi"),
-            llm=llm.LLM(
-                model="flash-lite",
+            stt=deepgram.STT(model="nova-3", language="multi"),
+            llm=google.LLM(
+                model="gemini-3.5-flash",
             ),
-            tts=tts.TTS(
-                voice="default",
+            tts=murf.TTS(
+                voice="Pooja",
                 style="Conversation",
                 tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
                 text_pacing=True,
@@ -1249,7 +1438,7 @@ async def my_agent(ctx: JobContext):
         agent_instance = Assistant(caller_id=caller_id, user_name=user_name)
         agent_instance.room_name = ctx.room.name
 
-        def log_call_completion():
+        async def log_call_completion():
             ended_at = datetime.now().isoformat()
             duration = max(1, int((datetime.now() - start_time).total_seconds()))
             save_call_log_to_db(
@@ -1272,7 +1461,12 @@ async def my_agent(ctx: JobContext):
 
         ctx.add_shutdown_callback(log_call_completion)
 
-        # Start the session, which initializes the voice pipeline and warms up the models
+        # Join the room and connect to the user FIRST
+        logger.info("Connecting to room...")
+        await ctx.connect()
+        logger.info("Connected to room")
+
+        # Start the session, which initializes the voice pipeline and starts speech interaction
         logger.info("Starting agent session...")
         await session.start(
             agent=agent_instance,
@@ -1289,11 +1483,6 @@ async def my_agent(ctx: JobContext):
             ),
         )
         logger.info("Agent session started")
-
-        # Join the room and connect to the user
-        logger.info("Connecting to room...")
-        await ctx.connect()
-        logger.info("Connected to room")
     except Exception as e:
         logger.error(f"Error in agent session: {e}", exc_info=True)
         raise
@@ -1337,7 +1526,7 @@ You are making an outbound call to remind the user about an upcoming scheme dead
             outbound_agent.room_name = ctx.room.name
             outbound_start = datetime.now()
 
-            def log_outbound_completion():
+            async def log_outbound_completion():
                 ended_at = datetime.now().isoformat()
                 duration = max(
                     1, int((datetime.now() - outbound_start).total_seconds())
@@ -1358,12 +1547,12 @@ You are making an outbound call to remind the user about an upcoming scheme dead
             ctx.add_shutdown_callback(log_outbound_completion)
 
             session = AgentSession(
-                stt=stt.STT(model="nova-3", language="multi"),
-                llm=llm.LLM(
-                    model="flash-lite",
+                stt=deepgram.STT(model="nova-3", language="multi"),
+                llm=google.LLM(
+                    model="gemini-3.5-flash",
                 ),
-                tts=tts.TTS(
-                    voice="default",
+                tts=murf.TTS(
+                    voice="Pooja",
                     style="Conversation",
                     tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
                     text_pacing=True,
