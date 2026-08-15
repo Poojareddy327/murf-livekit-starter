@@ -15,7 +15,7 @@ Financial services and scheme navigation in India can be daunting. With complex 
 
 To address this challenge, I built **FinAssist** — an interactive, conversational voice AI assistant developed under the **Financial Services Track** for the **10 Days of Voice Agents — VoiceForBharat Edition** challenge.
 
-![FinAssist Voice Assistant Homepage Interface](https://raw.githubusercontent.com/Poojareddy327/murf-livekit-starter/day9/screenshots/finassist_homepage.png)
+![FinAssist Voice Assistant Homepage Interface](https://raw.githubusercontent.com/Poojareddy327/murf-livekit-starter/day10/screenshots/finassist_homepage.png)
 
 ### Who is FinAssist for?
 - **Everyday Banking Customers**: Looking for instant guidance on savings accounts, digital payments, UPI security, and card services.
@@ -122,7 +122,7 @@ For security emergencies or unresolved transaction disputes, FinAssist triggers 
 ### 8. Live Call Analytics Dashboard
 A built-in Next.js dashboard (`/dashboard`) visualizes call success rates, session durations, track performance, and detailed outcome logs populated directly from SQLite database records.
 
-![FinAssist Live Call Analytics Dashboard](https://raw.githubusercontent.com/Poojareddy327/murf-livekit-starter/day9/screenshots/finassist_dashboard.png)
+![FinAssist Live Call Analytics Dashboard](https://raw.githubusercontent.com/Poojareddy327/murf-livekit-starter/day10/screenshots/finassist_dashboard.png)
 
 ---
 
@@ -167,9 +167,7 @@ This guaranteed complete PII protection while keeping issue summaries clear for 
 You can build and run your own voice AI agent using our open-source codebase.
 
 ### Public Repository
-{% github Poojareddy327/murf-livekit-starter %}
-
-🔗 **GitHub Repository**: [https://github.com/Poojareddy327/murf-livekit-starter](https://github.com/Poojareddy327/murf-livekit-starter)
+🔗 **GitHub Repository**: [https://github.com/Poojareddy327/murf-livekit-starter/tree/day10](https://github.com/Poojareddy327/murf-livekit-starter/tree/day10)
 
 ### Prerequisites
 - Python 3.10+ and [`uv`](https://docs.astral.sh/uv/)
@@ -181,7 +179,7 @@ You can build and run your own voice AI agent using our open-source codebase.
 
 ### Step 1: Clone & Configure Environment Variables
 ```bash
-git clone https://github.com/Poojareddy327/murf-livekit-starter.git
+git clone -b day10 https://github.com/Poojareddy327/murf-livekit-starter.git
 cd murf-livekit-starter
 ```
 
